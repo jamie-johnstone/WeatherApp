@@ -3,6 +3,10 @@ export * from './weather';
 export * from './location';
 export * from './navigation';
 
+// Import types for use in interfaces
+import type { LocationData, SavedLocation } from './location';
+import type { ProcessedWeatherData } from './weather';
+
 // Common utility types
 export interface ApiResponse<T> {
   data?: T;

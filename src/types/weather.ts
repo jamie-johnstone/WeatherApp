@@ -68,6 +68,9 @@ export interface DailyWeather {
   wind_direction_10m_dominant: number[];
 }
 
+// Import LocationData from location types
+import type { LocationData } from './location';
+
 // Processed weather data types for UI
 export interface ProcessedWeatherData {
   location: LocationData;
