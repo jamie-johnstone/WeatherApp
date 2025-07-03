@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -11,72 +11,35 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAppContext } from '@/context/AppContext';
-import { useLocationContext } from '@/context/LocationContext';
-import { LocationSearchScreenProps, LocationData } from '@/types';
-
-// Mock search results for now
-const mockSearchResults: LocationData[] = [
-  {
-    latitude: 40.7128,
-    longitude: -74.0060,
-    name: 'New York',
-    country: 'United States',
-    region: 'New York',
-  },
-  {
-    latitude: 51.5074,
-    longitude: -0.1278,
-    name: 'London',
-    country: 'United Kingdom',
-    region: 'England',
-  },
-  {
-    latitude: 48.8566,
-    longitude: 2.3522,
-    name: 'Paris',
-    country: 'France',
-    region: 'Île-de-France',
-  },
-];
+import { useLocation } from '@/hooks/useLocation';
+import { useLocationSearch } from '@/hooks/useLocationSearch';
+import { LocationSearchScreenProps, GeocodingResult } from '@/types';
 
 const LocationSearchScreen: React.FC<LocationSearchScreenProps> = ({ navigation }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<LocationData[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  
   const { setCurrentLocation } = useAppContext();
-  const { setCurrentLocation: setLocationContextLocation } = useLocationContext();
-
-  // Handle search
-  const handleSearch = async (query: string) => {
-    if (query.trim().length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    setIsSearching(true);
-    
-    try {
-      // Simulate API search delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Filter mock results based on search query
-      const filtered = mockSearchResults.filter(location =>
-        location.name?.toLowerCase().includes(query.toLowerCase()) ||
-        location.country?.toLowerCase().includes(query.toLowerCase()) ||
-        location.region?.toLowerCase().includes(query.toLowerCase())
-      );
-      
-      setSearchResults(filtered);
-    } catch (error) {
-      Alert.alert('Search Error', 'Failed to search locations. Please try again.');
-    } finally {
-      setIsSearching(false);
-    }
-  };
+  const { 
+    currentLocation,
+    isLoadingLocation,
+    requestLocation,
+    requestPermissions,
+    permissionState,
+  } = useLocation();
+  
+  const {
+    searchResults,
+    isSearching,
+    searchError,
+    searchQuery,
+    setQuery,
+    clearResults,
+    clearError,
+    convertToLocationData,
+  } = useLocationSearch();
 
   // Handle location selection
-  const handleLocationSelect = (location: LocationData) => {
+  const handleLocationSelect = (result: GeocodingResult) => {
+    const location = convertToLocationData(result);
+    
     Alert.alert(
       'Select Location',
       `Use ${location.name}, ${location.country} as your location?`,
@@ -85,11 +48,11 @@ const LocationSearchScreen: React.FC<LocationSearchScreenProps> = ({ navigation 
         {
           text: 'Use Location',
           onPress: () => {
-            // Update both contexts
+            // Update app context
             setCurrentLocation(location);
-            setLocationContextLocation(location);
             
-            // Navigate back to home
+            // Clear search and navigate back
+            clearResults();
             navigation.goBack();
             
             Alert.alert(
@@ -104,51 +67,47 @@ const LocationSearchScreen: React.FC<LocationSearchScreenProps> = ({ navigation 
 
   // Handle current location request
   const handleCurrentLocation = async () => {
-    Alert.alert(
-      'Use Current Location',
-      'This will request access to your device location.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Allow',
-          onPress: async () => {
-            setIsSearching(true);
-            try {
-              // Simulate location request
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              
-              // Mock current location (NYC for demo)
-              const currentLocation: LocationData = {
-                latitude: 40.7589,
-                longitude: -73.9851,
-                name: 'Current Location',
-                country: 'United States',
-                region: 'New York',
-              };
-              
-              setCurrentLocation(currentLocation);
-              setLocationContextLocation(currentLocation);
-              navigation.goBack();
-              
-              Alert.alert(
-                'Location Updated',
-                'Using your current location for weather data.'
-              );
-            } catch (error) {
-              Alert.alert(
-                'Location Error',
-                'Unable to get your current location. Please search manually or check location permissions.'
-              );
-            } finally {
-              setIsSearching(false);
-            }
+    if (!permissionState.granted) {
+      Alert.alert(
+        'Location Permission Required',
+        'This app needs access to your location to provide accurate weather information.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Allow',
+            onPress: async () => {
+              await requestPermissions();
+              if (permissionState.granted) {
+                await handleGetCurrentLocation();
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } else {
+      await handleGetCurrentLocation();
+    }
   };
 
-  const renderLocationItem = ({ item }: { item: LocationData }) => (
+  const handleGetCurrentLocation = async () => {
+    try {
+      await requestLocation();
+      
+      if (currentLocation) {
+        // Navigate back and show success
+        navigation.goBack();
+        Alert.alert(
+          'Location Updated',
+          'Using your current location for weather data.'
+        );
+      }
+    } catch (error) {
+      // Error handling is done in useLocation hook
+      console.error('Error getting current location:', error);
+    }
+  };
+
+  const renderLocationItem = ({ item }: { item: GeocodingResult }) => (
     <TouchableOpacity
       style={styles.locationItem}
       onPress={() => handleLocationSelect(item)}
@@ -156,7 +115,8 @@ const LocationSearchScreen: React.FC<LocationSearchScreenProps> = ({ navigation 
       <View style={styles.locationInfo}>
         <Text style={styles.locationName}>{item.name}</Text>
         <Text style={styles.locationDetails}>
-          {item.region && `${item.region}, `}{item.country}
+          {item.admin1 && `${item.admin1}, `}{item.country}
+          {item.population && ` • ${item.population.toLocaleString()} people`}
         </Text>
         <Text style={styles.locationCoords}>
           {item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}
@@ -177,13 +137,9 @@ const LocationSearchScreen: React.FC<LocationSearchScreenProps> = ({ navigation 
             placeholder="Search for a city..."
             placeholderTextColor="#999"
             value={searchQuery}
-            onChangeText={(text) => {
-              setSearchQuery(text);
-              handleSearch(text);
-            }}
+            onChangeText={setQuery}
             autoFocus
             returnKeyType="search"
-            onSubmitEditing={() => handleSearch(searchQuery)}
           />
           {isSearching && (
             <ActivityIndicator
@@ -197,17 +153,33 @@ const LocationSearchScreen: React.FC<LocationSearchScreenProps> = ({ navigation 
         <TouchableOpacity
           style={styles.currentLocationButton}
           onPress={handleCurrentLocation}
-          disabled={isSearching}
+          disabled={isLoadingLocation}
         >
           <Text style={styles.currentLocationText}>
-            📍 Use Current Location
+            {isLoadingLocation ? '⏳ Getting Location...' : '📍 Use Current Location'}
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Search Results */}
       <View style={styles.resultsContainer}>
-        {searchQuery.length > 0 && !isSearching && searchResults.length === 0 ? (
+        {searchError ? (
+          <View style={styles.noResultsContainer}>
+            <Text style={styles.noResultsText}>Search Error</Text>
+            <Text style={styles.noResultsSubtext}>
+              {searchError.message}
+            </Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => {
+                clearError();
+                setQuery(searchQuery); // Trigger search again
+              }}
+            >
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : searchQuery.length > 0 && !isSearching && searchResults.length === 0 ? (
           <View style={styles.noResultsContainer}>
             <Text style={styles.noResultsText}>No locations found</Text>
             <Text style={styles.noResultsSubtext}>
@@ -362,6 +334,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 6,
+  },
+  retryButton: {
+    backgroundColor: '#87CEEB',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 15,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 

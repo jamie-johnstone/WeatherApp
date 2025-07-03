@@ -10,19 +10,33 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAppContext } from '@/context/AppContext';
-import { useLocationContext } from '@/context/LocationContext';
+import { useLocation } from '@/hooks/useLocation';
 import { HomeScreenProps } from '@/types';
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { state: appState, setLoading, setError } = useAppContext();
-  const { state: locationState, setLoadingLocation } = useLocationContext();
+  const { 
+    currentLocation,
+    isLoadingLocation,
+    locationError,
+    permissionState,
+    requestLocation,
+    requestPermissions,
+    clearLocationError,
+  } = useLocation();
 
-  // Handle refresh
+  // Handle refresh - get current location and weather data
   const onRefresh = async () => {
     setLoading(true);
+    clearLocationError();
+    
     try {
-      // We'll implement weather data fetching later
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      if (currentLocation) {
+        // We'll implement weather data fetching in Phase 4
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      } else if (permissionState.granted) {
+        await requestLocation();
+      }
       setLoading(false);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to refresh');
@@ -39,26 +53,31 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     navigation.navigate('Settings');
   };
 
+  // Handle manual location request
+  const handleRequestLocation = async () => {
+    if (!permissionState.granted) {
+      await requestPermissions();
+    } else {
+      await requestLocation();
+    }
+  };
+
   // Request location permission on mount
   useEffect(() => {
-    const requestLocationPermission = async () => {
-      setLoadingLocation(true);
-      try {
-        // We'll implement location services later
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate permission request
-        setLoadingLocation(false);
-      } catch (error) {
-        setLoadingLocation(false);
-        Alert.alert(
-          'Location Permission',
-          'Unable to get location permission. You can search for locations manually.',
-          [{ text: 'OK' }]
-        );
+    const initializeLocation = async () => {
+      if (permissionState.status === 'undetermined') {
+        // Don't auto-request permissions, let user decide
+        return;
+      }
+      
+      if (permissionState.granted && !currentLocation) {
+        // If we have permissions but no location, try to get it
+        await requestLocation();
       }
     };
 
-    requestLocationPermission();
-  }, []);
+    initializeLocation();
+  }, [permissionState.granted, permissionState.status, currentLocation, requestLocation]);
 
   return (
     <View style={styles.container}>
@@ -96,22 +115,57 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         {/* Current Location Status */}
         <View style={styles.locationSection}>
           <Text style={styles.sectionTitle}>Current Location</Text>
-          {locationState.isLoadingLocation ? (
+          {isLoadingLocation ? (
             <Text style={styles.locationText}>Getting your location...</Text>
-          ) : locationState.currentLocation ? (
-            <Text style={styles.locationText}>
-              {locationState.currentLocation.name ||
-                `${locationState.currentLocation.latitude.toFixed(4)}, ${locationState.currentLocation.longitude.toFixed(4)}`}
-            </Text>
+          ) : currentLocation ? (
+            <View>
+              <Text style={styles.locationText}>
+                {currentLocation.name ||
+                  `${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}`}
+              </Text>
+              {currentLocation.region && currentLocation.country && (
+                <Text style={styles.locationDetails}>
+                  {currentLocation.region}, {currentLocation.country}
+                </Text>
+              )}
+              <TouchableOpacity
+                style={styles.refreshLocationButton}
+                onPress={handleRequestLocation}
+              >
+                <Text style={styles.refreshLocationText}>📍 Update Location</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <View>
-              <Text style={styles.locationText}>Location not available</Text>
-              <TouchableOpacity
-                style={styles.searchButton}
-                onPress={handleSearchLocation}
-              >
-                <Text style={styles.searchButtonText}>Search for a location</Text>
-              </TouchableOpacity>
+              <Text style={styles.locationText}>
+                {!permissionState.granted 
+                  ? 'Location permission required'
+                  : locationError
+                  ? 'Location unavailable'
+                  : 'Location not set'
+                }
+              </Text>
+              {locationError && (
+                <Text style={styles.errorText}>
+                  {locationError.message}
+                </Text>
+              )}
+              <View style={styles.locationActions}>
+                <TouchableOpacity
+                  style={styles.locationButton}
+                  onPress={handleRequestLocation}
+                >
+                  <Text style={styles.locationButtonText}>
+                    📍 Use Current Location
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.searchButton}
+                  onPress={handleSearchLocation}
+                >
+                  <Text style={styles.searchButtonText}>🔍 Search Location</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>
@@ -238,12 +292,46 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 10,
   },
+  locationDetails: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 15,
+  },
+  locationActions: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  locationButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginBottom: 10,
+  },
+  locationButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  refreshLocationButton: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 15,
+    alignSelf: 'flex-start',
+  },
+  refreshLocationText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
+  },
   searchButton: {
     backgroundColor: '#87CEEB',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
-    alignSelf: 'flex-start',
+    marginBottom: 10,
   },
   searchButtonText: {
     color: '#fff',

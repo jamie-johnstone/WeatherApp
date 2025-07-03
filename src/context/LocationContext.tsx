@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { LocationData, LocationPermissionState, LocationError } from '@/types';
+import { LocationData, LocationPermissionState } from '@/types';
+import { LocationError } from '@/services/LocationService';
 
 // Location-specific state
 interface LocationState {

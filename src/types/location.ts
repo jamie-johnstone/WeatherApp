@@ -29,6 +29,18 @@ export interface LocationError {
   message: string;
 }
 
+// Location error codes
+export type LocationErrorCode =
+  | 'PERMISSION_DENIED'
+  | 'SERVICES_DISABLED'
+  | 'TIMEOUT'
+  | 'UNAVAILABLE'
+  | 'PROCESSING_ERROR'
+  | 'WATCH_ERROR'
+  | 'SEARCH_ERROR'
+  | 'PERMISSION_ERROR'
+  | 'UNKNOWN';
+
 // Geocoding types
 export interface GeocodingResult {
   name: string;
