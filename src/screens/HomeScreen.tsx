@@ -14,9 +14,22 @@ import { useLocation } from '@/hooks/useLocation';
 import { useWeather } from '@/hooks/useWeather';
 import { formatTemperature, formatRelativeTime } from '@/utils/weatherUtils';
 import { HomeScreenProps } from '@/types';
+import { 
+  Card, 
+  Button, 
+  WeatherIcon, 
+  LoadingSpinner, 
+  ErrorMessage,
+  WeatherDetailsGrid 
+} from '@/components';
+import { useTheme } from '@/hooks/useTheme';
+import { useResponsive, useResponsiveSpacing } from '@/hooks/useResponsive';
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { state: appState, setError } = useAppContext();
+  const theme = useTheme();
+  const { isTablet, isLandscape } = useResponsive();
+  const { containerPadding } = useResponsiveSpacing();
   const {
     currentLocation,
     isLoadingLocation,
@@ -115,23 +128,56 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   }, [currentLocation, weatherData]);
 
+  const containerStyle = {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  };
+
+  const scrollViewStyle = {
+    flex: 1,
+  };
+
+  const headerStyle = {
+    backgroundColor: theme.colors.primary,
+    padding: theme.spacing.lg,
+    paddingTop: isTablet ? theme.spacing['2xl'] : theme.spacing['3xl'],
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+  };
+
+  const headerTitleStyle = {
+    fontSize: isTablet ? theme.typography.fontSize['3xl'] : theme.typography.fontSize['2xl'],
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.white,
+  };
+
+  const sectionTitleStyle = {
+    fontSize: isTablet ? theme.typography.fontSize.xl : theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.textPrimary,
+    marginBottom: theme.spacing.md,
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={containerStyle}>
       <StatusBar style="light" />
 
       <ScrollView
-        style={styles.scrollView}
+        style={scrollViewStyle}
+        contentContainerStyle={{ paddingHorizontal: containerPadding }}
         refreshControl={
           <RefreshControl
             refreshing={appState.isLoading}
             onRefresh={onRefresh}
-            tintColor="#87CEEB"
+            tintColor={theme.colors.primary}
           />
         }
+        showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Weather App</Text>
+        <View style={headerStyle}>
+          <Text style={headerTitleStyle}>Weather App</Text>
           <View style={styles.headerButtons}>
             <TouchableOpacity
               style={styles.headerButton}
@@ -149,10 +195,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         </View>
 
         {/* Current Location Status */}
-        <View style={styles.locationSection}>
-          <Text style={styles.sectionTitle}>Current Location</Text>
+        <Card style={styles.locationCard}>
+          <Text style={sectionTitleStyle}>Current Location</Text>
           {isLoadingLocation ? (
-            <Text style={styles.locationText}>Getting your location...</Text>
+            <LoadingSpinner message="Getting your location..." />
           ) : currentLocation ? (
             <View>
               <Text style={styles.locationText}>
@@ -164,12 +210,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   {currentLocation.region}, {currentLocation.country}
                 </Text>
               )}
-              <TouchableOpacity
-                style={styles.refreshLocationButton}
+              <Button
+                title="📍 Update Location"
                 onPress={handleRequestLocation}
-              >
-                <Text style={styles.refreshLocationText}>📍 Update Location</Text>
-              </TouchableOpacity>
+                variant="ghost"
+                size="small"
+                style={styles.updateLocationButton}
+              />
             </View>
           ) : (
             <View>
@@ -182,34 +229,37 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 }
               </Text>
               {locationError && (
-                <Text style={styles.errorText}>
-                  {locationError.message}
-                </Text>
+                <ErrorMessage
+                  title="Location Error"
+                  message={locationError.message}
+                  showRetry={false}
+                  style={styles.locationError}
+                />
               )}
               <View style={styles.locationActions}>
-                <TouchableOpacity
-                  style={styles.locationButton}
+                <Button
+                  title="📍 Use Current Location"
                   onPress={handleRequestLocation}
-                >
-                  <Text style={styles.locationButtonText}>
-                    📍 Use Current Location
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.searchButton}
+                  variant="secondary"
+                  size="small"
+                  style={styles.locationActionButton}
+                />
+                <Button
+                  title="🔍 Search Location"
                   onPress={handleSearchLocation}
-                >
-                  <Text style={styles.searchButtonText}>🔍 Search Location</Text>
-                </TouchableOpacity>
+                  variant="primary"
+                  size="small"
+                  style={styles.locationActionButton}
+                />
               </View>
             </View>
           )}
-        </View>
+        </Card>
 
         {/* Weather Data Section */}
-        <View style={styles.weatherSection}>
+        <Card style={styles.weatherCardContainer}>
           <View style={styles.weatherHeader}>
-            <Text style={styles.sectionTitle}>Current Weather</Text>
+            <Text style={sectionTitleStyle}>Current Weather</Text>
             {lastUpdated && (
               <Text style={styles.lastUpdated}>
                 Updated {formatRelativeTime(lastUpdated)}
@@ -219,26 +269,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
 
           {isLoadingWeather ? (
-            <Text style={styles.weatherText}>Loading weather data...</Text>
+            <LoadingSpinner message="Loading weather data..." />
           ) : weatherError ? (
-            <View style={styles.errorCard}>
-              <Text style={styles.errorText}>{weatherError}</Text>
-              <TouchableOpacity
-                style={styles.retryButton}
-                onPress={() => {
-                  clearWeatherError();
-                  if (currentLocation) {
-                    fetchWeatherForLocation(currentLocation);
-                  }
-                }}
-              >
-                <Text style={styles.retryButtonText}>Try Again</Text>
-              </TouchableOpacity>
-            </View>
+            <ErrorMessage
+              title="Weather Error"
+              message={weatherError}
+              onRetry={() => {
+                clearWeatherError();
+                if (currentLocation) {
+                  fetchWeatherForLocation(currentLocation);
+                }
+              }}
+            />
           ) : weatherData ? (
-            <View style={styles.weatherCard}>
+            <View style={styles.weatherContent}>
               <View style={styles.weatherMainInfo}>
-                <Text style={styles.weatherIcon}>{weatherData.current.icon}</Text>
+                <WeatherIcon 
+                  icon={weatherData.current.icon} 
+                  size={60} 
+                  style={styles.mainWeatherIcon}
+                />
                 <View style={styles.temperatureContainer}>
                   <Text style={styles.temperature}>
                     {formatTemperature(weatherData.current.temperature, appState.settings.temperatureUnit)}
@@ -253,24 +303,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 {weatherData.current.description}
               </Text>
 
-              <View style={styles.weatherDetailsGrid}>
-                <View style={styles.weatherDetailItem}>
-                  <Text style={styles.weatherDetailLabel}>Humidity</Text>
-                  <Text style={styles.weatherDetailValue}>{weatherData.current.humidity}%</Text>
-                </View>
-                <View style={styles.weatherDetailItem}>
-                  <Text style={styles.weatherDetailLabel}>Wind</Text>
-                  <Text style={styles.weatherDetailValue}>{weatherData.current.windSpeed} km/h</Text>
-                </View>
-                <View style={styles.weatherDetailItem}>
-                  <Text style={styles.weatherDetailLabel}>Pressure</Text>
-                  <Text style={styles.weatherDetailValue}>{weatherData.current.pressure} hPa</Text>
-                </View>
-                <View style={styles.weatherDetailItem}>
-                  <Text style={styles.weatherDetailLabel}>Cloud Cover</Text>
-                  <Text style={styles.weatherDetailValue}>{weatherData.current.cloudCover}%</Text>
-                </View>
-              </View>
+              <WeatherDetailsGrid 
+                details={[
+                  { label: 'Humidity', value: `${weatherData.current.humidity}%`, icon: '💧' },
+                  { label: 'Wind', value: `${weatherData.current.windSpeed} km/h`, icon: '💨' },
+                  { label: 'Pressure', value: `${weatherData.current.pressure} hPa`, icon: '🌡️' },
+                  { label: 'Cloud Cover', value: `${weatherData.current.cloudCover}%`, icon: '☁️' },
+                ]}
+              />
             </View>
           ) : (
             <View style={styles.noDataCard}>
@@ -282,28 +322,33 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 }
               </Text>
               {currentLocation && (
-                <TouchableOpacity
-                  style={styles.fetchWeatherButton}
+                <Button
+                  title="Get Weather"
                   onPress={() => fetchWeatherForLocation(currentLocation)}
-                >
-                  <Text style={styles.fetchWeatherButtonText}>Get Weather</Text>
-                </TouchableOpacity>
+                  variant="primary"
+                  size="small"
+                  style={styles.fetchWeatherButton}
+                />
               )}
             </View>
           )}
-        </View>
+        </Card>
 
         {/* App Error Display */}
         {appState.error && (
-          <View style={styles.errorSection}>
-            <Text style={styles.errorText}>{appState.error}</Text>
-          </View>
+          <Card style={styles.errorCard}>
+            <ErrorMessage
+              title="Application Error"
+              message={appState.error}
+              showRetry={false}
+            />
+          </Card>
         )}
 
         {/* Saved Locations */}
         {appState.savedLocations.length > 0 && (
-          <View style={styles.savedLocationsSection}>
-            <Text style={styles.sectionTitle}>Saved Locations</Text>
+          <Card style={styles.savedLocationsCard}>
+            <Text style={sectionTitleStyle}>Saved Locations</Text>
             {appState.savedLocations.map((location) => (
               <TouchableOpacity
                 key={location.id}
@@ -319,7 +364,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </Card>
         )}
       </ScrollView>
     </View>
@@ -362,16 +407,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  locationSection: {
-    backgroundColor: '#fff',
-    margin: 15,
-    padding: 20,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  locationCard: {
+    marginTop: 0,
   },
   sectionTitle: {
     fontSize: 18,
@@ -393,62 +430,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     flexWrap: 'wrap',
+    marginTop: 10,
   },
-  locationButton: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginBottom: 10,
+  locationActionButton: {
+    flex: 1,
+    marginHorizontal: 5,
   },
-  locationButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  refreshLocationButton: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 15,
+  updateLocationButton: {
+    marginTop: 10,
     alignSelf: 'flex-start',
   },
-  refreshLocationText: {
-    color: '#666',
-    fontSize: 14,
-    fontWeight: '500',
+  locationError: {
+    marginVertical: 10,
   },
-  searchButton: {
-    backgroundColor: '#87CEEB',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginBottom: 10,
-  },
-  searchButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  weatherSection: {
-    backgroundColor: '#fff',
-    margin: 15,
+  weatherCardContainer: {
     marginTop: 0,
-    padding: 20,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   weatherText: {
     fontSize: 16,
     color: '#666',
   },
-  weatherCard: {
+  weatherContent: {
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 10,
+  },
+  mainWeatherIcon: {
+    marginRight: 20,
   },
   weatherHeader: {
     flexDirection: 'row',
@@ -468,10 +475,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 15,
-  },
-  weatherIcon: {
-    fontSize: 60,
-    marginRight: 20,
   },
   temperatureContainer: {
     flex: 1,
@@ -493,64 +496,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  weatherDetailsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  weatherDetailItem: {
-    width: '48%',
-    backgroundColor: '#f8f9fa',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  weatherDetailLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 5,
-    textTransform: 'uppercase',
-    fontWeight: '500',
-  },
-  weatherDetailValue: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '600',
-  },
   weatherDetails: {
     fontSize: 14,
     color: '#888',
     marginBottom: 5,
   },
-  errorCard: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  retryButton: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginTop: 15,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
   fetchWeatherButton: {
-    backgroundColor: '#87CEEB',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
     marginTop: 15,
-  },
-  fetchWeatherButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
   },
   noDataCard: {
     alignItems: 'center',
@@ -567,31 +519,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  errorSection: {
-    backgroundColor: '#ffebee',
-    margin: 15,
+  errorCard: {
     marginTop: 0,
-    padding: 15,
-    borderRadius: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#f44336',
   },
   errorText: {
     color: '#c62828',
     fontSize: 14,
     lineHeight: 20,
   },
-  savedLocationsSection: {
-    backgroundColor: '#fff',
-    margin: 15,
+  savedLocationsCard: {
     marginTop: 0,
-    padding: 20,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   savedLocationItem: {
     paddingVertical: 12,
