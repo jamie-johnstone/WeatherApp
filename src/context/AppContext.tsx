@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { AppState, AppSettings, LocationData, ProcessedWeatherData, SavedLocation } from '@/types';
+import { AppState, AppSettings, ProcessedWeatherData, SavedLocation } from '@/types';
 
 // Initial settings
 const initialSettings: AppSettings = {
@@ -16,7 +16,6 @@ const initialState: AppState = {
   isLoading: false,
   error: null,
   settings: initialSettings,
-  currentLocation: null,
   weatherData: null,
   savedLocations: [],
 };
@@ -25,7 +24,6 @@ const initialState: AppState = {
 export type AppAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'SET_CURRENT_LOCATION'; payload: LocationData | null }
   | { type: 'SET_WEATHER_DATA'; payload: ProcessedWeatherData | null }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<AppSettings> }
   | { type: 'ADD_SAVED_LOCATION'; payload: SavedLocation }
@@ -46,9 +44,6 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     
     case 'CLEAR_ERROR':
       return { ...state, error: null };
-    
-    case 'SET_CURRENT_LOCATION':
-      return { ...state, currentLocation: action.payload };
     
     case 'SET_WEATHER_DATA':
       return { ...state, weatherData: action.payload, isLoading: false };
@@ -100,7 +95,6 @@ interface AppContextType {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
-  setCurrentLocation: (location: LocationData | null) => void;
   setWeatherData: (data: ProcessedWeatherData | null) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
   addSavedLocation: (location: SavedLocation) => void;
@@ -132,10 +126,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     dispatch({ type: 'CLEAR_ERROR' });
   };
 
-  const setCurrentLocation = (location: LocationData | null) => {
-    dispatch({ type: 'SET_CURRENT_LOCATION', payload: location });
-  };
-
   const setWeatherData = (data: ProcessedWeatherData | null) => {
     dispatch({ type: 'SET_WEATHER_DATA', payload: data });
   };
@@ -162,7 +152,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setLoading,
     setError,
     clearError,
-    setCurrentLocation,
     setWeatherData,
     updateSettings,
     addSavedLocation,

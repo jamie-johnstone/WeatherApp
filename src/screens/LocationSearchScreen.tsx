@@ -10,13 +10,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useAppContext } from '@/context/AppContext';
+import { useLocationContext } from '@/context/LocationContext';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationSearch } from '@/hooks/useLocationSearch';
 import { LocationSearchScreenProps, GeocodingResult } from '@/types';
 
 const LocationSearchScreen: React.FC<LocationSearchScreenProps> = ({ navigation }) => {
-  const { setCurrentLocation } = useAppContext();
+  const { setCurrentLocation } = useLocationContext();
   const { 
     currentLocation,
     isLoadingLocation,
@@ -48,7 +48,7 @@ const LocationSearchScreen: React.FC<LocationSearchScreenProps> = ({ navigation 
         {
           text: 'Use Location',
           onPress: () => {
-            // Update app context
+            // Update location context (this will update the UI)
             setCurrentLocation(location);
             
             // Clear search and navigate back

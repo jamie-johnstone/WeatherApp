@@ -4,7 +4,7 @@ export * from './location';
 export * from './navigation';
 
 // Import types for use in interfaces
-import type { LocationData, SavedLocation } from './location';
+import type { SavedLocation } from './location';
 import type { ProcessedWeatherData } from './weather';
 
 // Common utility types
@@ -34,7 +34,6 @@ export interface AppState {
   isLoading: boolean;
   error: string | null;
   settings: AppSettings;
-  currentLocation: LocationData | null;
   weatherData: ProcessedWeatherData | null;
   savedLocations: SavedLocation[];
 }
