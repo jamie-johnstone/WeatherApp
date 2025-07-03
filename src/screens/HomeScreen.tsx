@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -62,22 +62,28 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   };
 
-  // Request location permission on mount
-  useEffect(() => {
-    const initializeLocation = async () => {
-      if (permissionState.status === 'undetermined') {
-        // Don't auto-request permissions, let user decide
-        return;
-      }
-      
-      if (permissionState.granted && !currentLocation) {
-        // If we have permissions but no location, try to get it
-        await requestLocation();
-      }
-    };
+  // Track if we've tried to get location to prevent infinite loops
+  const hasTriedLocation = useRef(false);
 
-    initializeLocation();
-  }, [permissionState.granted, permissionState.status, currentLocation, requestLocation]);
+  // Only try to get location once when permissions are granted and we don't have a location
+  useEffect(() => {
+    if (
+      permissionState.granted &&
+      !currentLocation &&
+      !isLoadingLocation &&
+      !hasTriedLocation.current
+    ) {
+      hasTriedLocation.current = true;
+      requestLocation();
+    }
+  }, [permissionState.granted, currentLocation, isLoadingLocation, requestLocation]);
+
+  // Reset the flag when permission status changes to undetermined or denied
+  useEffect(() => {
+    if (permissionState.status !== 'granted') {
+      hasTriedLocation.current = false;
+    }
+  }, [permissionState.status]);
 
   return (
     <View style={styles.container}>

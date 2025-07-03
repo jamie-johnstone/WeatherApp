@@ -89,7 +89,7 @@ export const useLocation = (): UseLocationReturn => {
     }
   }, [setLoadingLocation, clearLocationError, setPermissionState, setLocationError]);
 
-  // Get current location
+  // Get current location (without auto-requesting permissions to avoid circular dependencies)
   const requestLocation = useCallback(async () => {
     try {
       setLoadingLocation(true);
@@ -100,7 +100,12 @@ export const useLocation = (): UseLocationReturn => {
       setPermissionState(permissions);
 
       if (!permissions.granted) {
-        await requestPermissions();
+        setLocationError(new LocationError('PERMISSION_DENIED', 'Location permission is required'));
+        Alert.alert(
+          'Location Permission Required',
+          'Please allow location access to get weather for your current location.',
+          [{ text: 'OK' }]
+        );
         return;
       }
 
@@ -115,13 +120,6 @@ export const useLocation = (): UseLocationReturn => {
         
         // Show user-friendly alerts for specific errors
         switch (error.code) {
-          case 'PERMISSION_DENIED':
-            Alert.alert(
-              'Location Permission Required',
-              'Please allow location access to get weather for your current location.',
-              [{ text: 'OK', onPress: requestPermissions }]
-            );
-            break;
           case 'SERVICES_DISABLED':
             Alert.alert(
               'Location Services Disabled',
@@ -133,20 +131,14 @@ export const useLocation = (): UseLocationReturn => {
             Alert.alert(
               'Location Timeout',
               'Unable to get your location. Please try again or search for a location manually.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Try Again', onPress: requestLocation },
-              ]
+              [{ text: 'OK' }]
             );
             break;
           default:
             Alert.alert(
               'Location Error',
               error.message || 'Unable to get your location. Please try again.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Try Again', onPress: requestLocation },
-              ]
+              [{ text: 'OK' }]
             );
         }
       } else {
@@ -171,7 +163,6 @@ export const useLocation = (): UseLocationReturn => {
     setPermissionState,
     setCurrentLocation,
     setLocationError,
-    requestPermissions,
   ]);
 
   // Start watching location changes
