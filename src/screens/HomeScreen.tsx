@@ -11,11 +11,13 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useAppContext } from '@/context/AppContext';
 import { useLocation } from '@/hooks/useLocation';
+import { useWeather } from '@/hooks/useWeather';
+import { formatTemperature, formatRelativeTime } from '@/utils/weatherUtils';
 import { HomeScreenProps } from '@/types';
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
-  const { state: appState, setLoading, setError } = useAppContext();
-  const { 
+  const { state: appState, setError } = useAppContext();
+  const {
     currentLocation,
     isLoadingLocation,
     locationError,
@@ -25,19 +27,31 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     clearLocationError,
   } = useLocation();
 
+  const {
+    weatherData,
+    isLoadingWeather,
+    weatherError,
+    lastUpdated,
+    isDataStale,
+    fetchWeatherForLocation,
+    clearWeatherError,
+  } = useWeather();
+
   // Handle refresh - get current location and weather data
   const onRefresh = async () => {
-    setLoading(true);
     clearLocationError();
-    
+    clearWeatherError();
+
     try {
       if (currentLocation) {
-        // We'll implement weather data fetching in Phase 4
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+        // Refresh weather data for current location
+        await fetchWeatherForLocation(currentLocation);
       } else if (permissionState.granted) {
+        // Get location first, then weather will be fetched automatically
         await requestLocation();
+      } else {
+        setError('Location permission required to get weather data');
       }
-      setLoading(false);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to refresh');
     }
@@ -64,6 +78,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   // Track if we've tried to get location to prevent infinite loops
   const hasTriedLocation = useRef(false);
+  const isFetchingWeather = useRef(false);
 
   // Only try to get location once when permissions are granted and we don't have a location
   useEffect(() => {
@@ -85,10 +100,25 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   }, [permissionState.status]);
 
+  // Fetch weather data when location changes
+  useEffect(() => {
+    if (currentLocation &&
+        !isFetchingWeather.current &&
+        (!weatherData ||
+         weatherData.location.latitude !== currentLocation.latitude ||
+         weatherData.location.longitude !== currentLocation.longitude)) {
+      console.log('Location changed, fetching weather data...');
+      isFetchingWeather.current = true;
+      fetchWeatherForLocation(currentLocation).finally(() => {
+        isFetchingWeather.current = false;
+      });
+    }
+  }, [currentLocation, weatherData]);
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
       <ScrollView
         style={styles.scrollView}
         refreshControl={
@@ -144,7 +174,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           ) : (
             <View>
               <Text style={styles.locationText}>
-                {!permissionState.granted 
+                {!permissionState.granted
                   ? 'Location permission required'
                   : locationError
                   ? 'Location unavailable'
@@ -178,36 +208,92 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
         {/* Weather Data Section */}
         <View style={styles.weatherSection}>
-          <Text style={styles.sectionTitle}>Current Weather</Text>
-          {appState.isLoading ? (
+          <View style={styles.weatherHeader}>
+            <Text style={styles.sectionTitle}>Current Weather</Text>
+            {lastUpdated && (
+              <Text style={styles.lastUpdated}>
+                Updated {formatRelativeTime(lastUpdated)}
+                {isDataStale && <Text style={styles.staleIndicator}> • Stale</Text>}
+              </Text>
+            )}
+          </View>
+
+          {isLoadingWeather ? (
             <Text style={styles.weatherText}>Loading weather data...</Text>
-          ) : appState.weatherData ? (
+          ) : weatherError ? (
+            <View style={styles.errorCard}>
+              <Text style={styles.errorText}>{weatherError}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={() => {
+                  clearWeatherError();
+                  if (currentLocation) {
+                    fetchWeatherForLocation(currentLocation);
+                  }
+                }}
+              >
+                <Text style={styles.retryButtonText}>Try Again</Text>
+              </TouchableOpacity>
+            </View>
+          ) : weatherData ? (
             <View style={styles.weatherCard}>
-              <Text style={styles.temperature}>
-                {appState.weatherData.current.temperature}°
-                {appState.settings.temperatureUnit === 'celsius' ? 'C' : 'F'}
-              </Text>
+              <View style={styles.weatherMainInfo}>
+                <Text style={styles.weatherIcon}>{weatherData.current.icon}</Text>
+                <View style={styles.temperatureContainer}>
+                  <Text style={styles.temperature}>
+                    {formatTemperature(weatherData.current.temperature, appState.settings.temperatureUnit)}
+                  </Text>
+                  <Text style={styles.feelsLike}>
+                    Feels like {formatTemperature(weatherData.current.feelsLike, appState.settings.temperatureUnit)}
+                  </Text>
+                </View>
+              </View>
+
               <Text style={styles.weatherDescription}>
-                {appState.weatherData.current.description}
+                {weatherData.current.description}
               </Text>
-              <Text style={styles.weatherDetails}>
-                Feels like {appState.weatherData.current.feelsLike}°
-              </Text>
-              <Text style={styles.weatherDetails}>
-                Humidity: {appState.weatherData.current.humidity}%
-              </Text>
+
+              <View style={styles.weatherDetailsGrid}>
+                <View style={styles.weatherDetailItem}>
+                  <Text style={styles.weatherDetailLabel}>Humidity</Text>
+                  <Text style={styles.weatherDetailValue}>{weatherData.current.humidity}%</Text>
+                </View>
+                <View style={styles.weatherDetailItem}>
+                  <Text style={styles.weatherDetailLabel}>Wind</Text>
+                  <Text style={styles.weatherDetailValue}>{weatherData.current.windSpeed} km/h</Text>
+                </View>
+                <View style={styles.weatherDetailItem}>
+                  <Text style={styles.weatherDetailLabel}>Pressure</Text>
+                  <Text style={styles.weatherDetailValue}>{weatherData.current.pressure} hPa</Text>
+                </View>
+                <View style={styles.weatherDetailItem}>
+                  <Text style={styles.weatherDetailLabel}>Cloud Cover</Text>
+                  <Text style={styles.weatherDetailValue}>{weatherData.current.cloudCover}%</Text>
+                </View>
+              </View>
             </View>
           ) : (
             <View style={styles.noDataCard}>
               <Text style={styles.noDataText}>No weather data available</Text>
               <Text style={styles.noDataSubtext}>
-                Please enable location or search for a location to get weather information
+                {currentLocation
+                  ? 'Unable to get weather for this location'
+                  : 'Please enable location or search for a location to get weather information'
+                }
               </Text>
+              {currentLocation && (
+                <TouchableOpacity
+                  style={styles.fetchWeatherButton}
+                  onPress={() => fetchWeatherForLocation(currentLocation)}
+                >
+                  <Text style={styles.fetchWeatherButtonText}>Get Weather</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
 
-        {/* Error Display */}
+        {/* App Error Display */}
         {appState.error && (
           <View style={styles.errorSection}>
             <Text style={styles.errorText}>{appState.error}</Text>
@@ -364,22 +450,107 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 20,
   },
+  weatherHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  lastUpdated: {
+    fontSize: 12,
+    color: '#888',
+  },
+  staleIndicator: {
+    color: '#ff9800',
+    fontWeight: '500',
+  },
+  weatherMainInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  weatherIcon: {
+    fontSize: 60,
+    marginRight: 20,
+  },
+  temperatureContainer: {
+    flex: 1,
+  },
   temperature: {
     fontSize: 48,
     fontWeight: '300',
     color: '#333',
-    marginBottom: 10,
+    marginBottom: 5,
+  },
+  feelsLike: {
+    fontSize: 16,
+    color: '#666',
   },
   weatherDescription: {
     fontSize: 18,
     color: '#666',
     textTransform: 'capitalize',
-    marginBottom: 15,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  weatherDetailsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  weatherDetailItem: {
+    width: '48%',
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  weatherDetailLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 5,
+    textTransform: 'uppercase',
+    fontWeight: '500',
+  },
+  weatherDetailValue: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
   },
   weatherDetails: {
     fontSize: 14,
     color: '#888',
     marginBottom: 5,
+  },
+  errorCard: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  retryButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 15,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  fetchWeatherButton: {
+    backgroundColor: '#87CEEB',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 15,
+  },
+  fetchWeatherButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
   noDataCard: {
     alignItems: 'center',
