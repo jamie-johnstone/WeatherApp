@@ -20,16 +20,26 @@ import {
   WeatherIcon, 
   LoadingSpinner, 
   ErrorMessage,
-  WeatherDetailsGrid 
+  WeatherDetailsGrid,
+  HourlyForecast,
+  DailyForecast,
+  WeatherAlerts
 } from '@/components';
 import { useTheme } from '@/hooks/useTheme';
 import { useResponsive, useResponsiveSpacing } from '@/hooks/useResponsive';
+import { useWeatherAlerts } from '@/hooks/useWeatherAlerts';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
+// import { useNetwork } from '@/context/NetworkContext';
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
-  const { state: appState, setError } = useAppContext();
+  const { state: appState } = useAppContext();
   const theme = useTheme();
-  const { isTablet, isLandscape } = useResponsive();
+  const { isTablet } = useResponsive();
   const { containerPadding } = useResponsiveSpacing();
+  const errorHandler = useErrorHandler({
+    defaultErrorMessage: 'Something went wrong on the home screen',
+  });
+  // const { isOnline } = useNetwork();
   const {
     currentLocation,
     isLoadingLocation,
@@ -49,25 +59,44 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     fetchWeatherForLocation,
     clearWeatherError,
   } = useWeather();
+  
+  const {
+    alerts,
+    dismissAlert,
+    // clearAllAlerts,
+    checkWeatherConditions,
+  } = useWeatherAlerts();
 
   // Handle refresh - get current location and weather data
   const onRefresh = async () => {
+    // Check network connectivity first
+    if (errorHandler.shouldBlockAction('online')) {
+      return;
+    }
+
     clearLocationError();
     clearWeatherError();
 
-    try {
-      if (currentLocation) {
-        // Refresh weather data for current location
-        await fetchWeatherForLocation(currentLocation);
-      } else if (permissionState.granted) {
-        // Get location first, then weather will be fetched automatically
-        await requestLocation();
-      } else {
-        setError('Location permission required to get weather data');
+    await errorHandler.withErrorHandling(
+      async () => {
+        if (currentLocation) {
+          // Refresh weather data for current location
+          await fetchWeatherForLocation(currentLocation);
+        } else if (permissionState.granted) {
+          // Get location first, then weather will be fetched automatically
+          await requestLocation();
+        } else {
+          errorHandler.handlePermissionError(
+            'Location permission required to get weather data',
+            () => requestPermissions()
+          );
+        }
+      },
+      {
+        source: 'HomeScreen.onRefresh',
+        fallback: undefined,
       }
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to refresh');
-    }
+    );
   };
 
   // Handle location search navigation
@@ -127,6 +156,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       });
     }
   }, [currentLocation, weatherData]);
+
+  // Check weather conditions for alerts when weather data changes
+  useEffect(() => {
+    if (weatherData) {
+      checkWeatherConditions(weatherData);
+    }
+  }, [weatherData, checkWeatherConditions]);
 
   const containerStyle = {
     flex: 1,
@@ -193,6 +229,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Weather Alerts */}
+        {alerts.length > 0 && (
+          <WeatherAlerts
+            alerts={alerts}
+            onAlertPress={(alert) => {
+              Alert.alert(
+                alert.title,
+                alert.message,
+                [
+                  { text: 'Dismiss', onPress: () => dismissAlert(alert.id) },
+                  { text: 'OK', style: 'default' },
+                ]
+              );
+            }}
+            onAlertDismiss={dismissAlert}
+            maxItems={3}
+            compact={false}
+          />
+        )}
 
         {/* Current Location Status */}
         <Card style={styles.locationCard}>
@@ -334,6 +390,35 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           )}
         </Card>
 
+        {/* Hourly Forecast */}
+        {weatherData?.hourly && weatherData.hourly.length > 0 && (
+          <Card style={styles.forecastCard}>
+            <HourlyForecast
+              hourlyData={weatherData.hourly}
+              temperatureUnit={appState.settings.temperatureUnit}
+              showPrecipitation={true}
+            />
+          </Card>
+        )}
+
+        {/* Daily Forecast */}
+        {weatherData?.daily && weatherData.daily.length > 0 && (
+          <Card style={styles.forecastCard}>
+            <DailyForecast
+              dailyData={weatherData.daily}
+              temperatureUnit={appState.settings.temperatureUnit}
+              showPrecipitation={true}
+              onDayPress={(day) => {
+                // Future enhancement: Show detailed day view
+                Alert.alert(
+                  `Weather for ${day.date.toLocaleDateString()}`,
+                  `${day.description}\nHigh: ${formatTemperature(day.maxTemp, appState.settings.temperatureUnit)}\nLow: ${formatTemperature(day.minTemp, appState.settings.temperatureUnit)}`
+                );
+              }}
+            />
+          </Card>
+        )}
+
         {/* App Error Display */}
         {appState.error && (
           <Card style={styles.errorCard}>
@@ -445,6 +530,10 @@ const styles = StyleSheet.create({
   },
   weatherCardContainer: {
     marginTop: 0,
+  },
+  forecastCard: {
+    marginTop: 0,
+    padding: 0,
   },
   weatherText: {
     fontSize: 16,

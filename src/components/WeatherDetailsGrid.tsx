@@ -31,7 +31,7 @@ export const WeatherDetailsGrid: React.FC<WeatherDetailsGridProps> = ({
     flexDirection: 'row' as const,
     flexWrap: 'wrap' as const,
     justifyContent: 'space-between' as const,
-    width: '100%',
+    width: '100%' as const,
   };
   
   const itemStyle = {

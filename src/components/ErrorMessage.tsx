@@ -20,8 +20,13 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = ({
   style,
 }) => {
   return (
-    <View style={[styles.container, style]}>
-      <Text style={styles.title}>{title}</Text>
+    <View 
+      style={[styles.container, style]} 
+      accessible={true} 
+      accessibilityRole="alert"
+      accessibilityLiveRegion="assertive"
+    >
+      <Text style={styles.title} accessibilityRole="header">{title}</Text>
       <Text style={styles.message}>{message}</Text>
       {showRetry && onRetry && (
         <Button

@@ -13,7 +13,12 @@ export const WeatherIcon: React.FC<WeatherIconProps> = ({
   style 
 }) => {
   return (
-    <Text style={[styles.icon, { fontSize: size }, style]}>
+    <Text 
+      style={[styles.icon, { fontSize: size }, style]}
+      accessible={true}
+      accessibilityRole="image"
+      accessibilityLabel={`Weather icon: ${icon}`}
+    >
       {icon}
     </Text>
   );

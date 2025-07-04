@@ -67,7 +67,7 @@ export const useWeather = (): UseWeatherReturn => {
       if (!currentRequestRef.current?.signal.aborted) {
         console.error('Error fetching weather:', error);
         
-        let errorMessage = WEATHER_ERROR_MESSAGES.UNKNOWN_ERROR;
+        let errorMessage: string = WEATHER_ERROR_MESSAGES.UNKNOWN_ERROR;
         
         if (error instanceof Error) {
           if (error.message.includes('timeout') || error.message.includes('timed out')) {

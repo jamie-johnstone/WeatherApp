@@ -20,9 +20,14 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   ];
 
   return (
-    <View style={containerStyle}>
-      <ActivityIndicator size={size} color={color} />
-      {message && <Text style={styles.message}>{message}</Text>}
+    <View style={containerStyle} accessible={true} accessibilityRole="progressbar">
+      <ActivityIndicator 
+        size={size} 
+        color={color} 
+        testID="activity-indicator" 
+        accessibilityLabel="Loading indicator"
+      />
+      {message && <Text style={styles.message} accessibilityLiveRegion="polite">{message}</Text>}
     </View>
   );
 };

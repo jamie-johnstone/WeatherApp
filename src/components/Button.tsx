@@ -145,12 +145,21 @@ export const Button: React.FC<ButtonProps> = ({
       onPress={onPress}
       disabled={disabled || loading}
       activeOpacity={0.8}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ 
+        disabled: disabled || loading,
+        busy: loading 
+      }}
+      accessibilityHint={loading ? 'Button is loading' : undefined}
     >
       {loading && (
         <ActivityIndicator 
           size="small" 
           color={spinnerColor}
           style={{ marginRight: theme.spacing.sm }}
+          accessibilityLabel="Loading"
         />
       )}
       {icon && !loading && icon}
