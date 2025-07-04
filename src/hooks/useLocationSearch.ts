@@ -57,13 +57,18 @@ export const useLocationSearch = (): UseLocationSearchReturn => {
         // Create new abort controller for this request
         abortControllerRef.current = new AbortController();
 
-        const results = await locationService.current.searchLocations(trimmedQuery);
+        const results = await locationService.current.searchLocations(trimmedQuery, abortControllerRef.current.signal);
         
         // Only update if request wasn't aborted
         if (!abortControllerRef.current.signal.aborted) {
           setSearchResults(results);
         }
       } catch (error) {
+        // Don't handle AbortError - it's expected when cancelling requests
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
+        
         // Only handle error if request wasn't aborted
         if (!abortControllerRef.current?.signal.aborted) {
           console.error('Search error:', error);
@@ -120,7 +125,7 @@ export const useLocationSearch = (): UseLocationSearchReturn => {
   // Auto-search when query changes
   useEffect(() => {
     search(searchQuery);
-  }, [searchQuery, search]);
+  }, [searchQuery]); // Remove search from dependencies since it's stable
 
   // Cleanup on unmount
   useEffect(() => {

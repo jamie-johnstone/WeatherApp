@@ -238,7 +238,7 @@ class LocationService {
   /**
    * Search for locations using geocoding
    */
-  async searchLocations(query: string): Promise<GeocodingResult[]> {
+  async searchLocations(query: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
     try {
       if (query.trim().length < 2) {
         return [];
@@ -248,7 +248,8 @@ class LocationService {
       const response = await fetch(
         `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
           query
-        )}&count=10&language=en&format=json`
+        )}&count=10&language=en&format=json`,
+        { signal }
       );
 
       if (!response.ok) {
@@ -259,6 +260,11 @@ class LocationService {
 
       return data.results || [];
     } catch (error) {
+      // Don't throw error for aborted requests
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error; // Re-throw abort errors as-is
+      }
+      
       console.error('Error searching locations:', error);
       throw new LocationError(
         'SEARCH_ERROR',
