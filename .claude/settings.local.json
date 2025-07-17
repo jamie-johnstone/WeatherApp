@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(npx create-expo-app:*)",
+      "Bash(mkdir:*)",
+      "Bash(npx expo install:*)",
+      "Bash(npm install:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm run start:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm start)",
+      "Bash(npm test)",
+      "Bash(npm test:*)",
+      "Bash(mv:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(rm:*)",
+      "Bash(sed:*)",
+      "Bash(npx eslint:*)",
+      "Bash(node:*)",
+      "Bash(timeout 10 npx expo start --web --tunnel)",
+      "Bash(chmod:*)",
+      "Bash(npm run build:web:*)",
+      "Bash(npm run build:verify:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(claude mcp add:*)",
+      "Bash(claude mcp)",
+      "Bash(claude mcp:*)"
+    ],
+    "deny": []
+  }
+}
