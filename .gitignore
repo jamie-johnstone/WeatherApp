@@ -38,3 +38,6 @@ yarn-error.*
 
 # JetBrains
 .idea
+
+# Claude
+.claude/session-notes.md
